@@ -1,4 +1,4 @@
-package main
+package bitrise
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 )
-
 
 func BuildIap(version string) {
 	sendRequest("tag",version,"iap-fastlane")

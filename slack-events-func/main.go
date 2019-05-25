@@ -9,6 +9,7 @@ import (
 	"github.com/nlopes/slack/slackevents"
 	"net/http"
 	"os"
+	"slack-bot-lambda/bitrise"
 	"strings"
 )
 
@@ -142,7 +143,7 @@ func handleHelp(ev slackevents.AppMentionEvent) {
 func handleIap(ev slackevents.AppMentionEvent) {
 	version := strings.Fields(ev.Text)[2]
 
-	BuildIap(version)
+	bitrise.BuildIap(version)
 
 	sendMsg("deploying iap build, version: " + version,ev.Channel)
 }
@@ -150,7 +151,7 @@ func handleIap(ev slackevents.AppMentionEvent) {
 func handleInhouse(ev slackevents.AppMentionEvent) {
 	version := strings.Fields(ev.Text)[2]
 
-	BuildInhouse(version)
+	bitrise.BuildInhouse(version)
 
 	sendMsg("deploying inhouse build, version: " + version,ev.Channel)
 }

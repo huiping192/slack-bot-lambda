@@ -38,7 +38,16 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 	if message.Type == "interactive_message" {
 		// Order Coffeeボタンの入力を受け付けてフォームを表示する
 
-		log.Println("receive interactive message" + message.Name)
+		log.Println("receive interactive message, name:" + message.Name + "callback id:" + message.CallbackID)
+
+		text := "了解!deploy しますよ!"
+		return events.APIGatewayProxyResponse{
+			Body:       text,
+			StatusCode: http.StatusOK,
+		}, nil
+		if message.CallbackID == "callback_help" {
+
+		}
 
 
 	} else if message.Type == "dialog_submission" {
