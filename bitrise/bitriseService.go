@@ -8,6 +8,10 @@ import (
 	"os"
 )
 
+type Response struct {
+
+}
+
 func BuildIap(version string) {
 	sendRequest("tag",version,"iap-fastlane")
 

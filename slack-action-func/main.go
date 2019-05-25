@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slack-bot-lambda/bitrise"
 	"strings"
 )
 
@@ -36,17 +37,22 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 	if message.Type == "interactive_message" {
-		// Order Coffeeボタンの入力を受け付けてフォームを表示する
-
 		log.Println("receive interactive message, name:" + message.Name + "callback id:" + message.CallbackID)
 
-		text := "了解!deploy しますよ!"
-		return events.APIGatewayProxyResponse{
-			Body:       text,
-			StatusCode: http.StatusOK,
-		}, nil
-		if message.CallbackID == "callback_help" {
+		if message.CallbackID == "callback_iap_deploy" {
+			text := handleIap(message)
+			return events.APIGatewayProxyResponse{
+				Body:       text,
+				StatusCode: http.StatusOK,
+			}, nil
+		}
 
+		if message.CallbackID == "callback_inhouse_deploy" {
+			text := handleInhouse(message)
+			return events.APIGatewayProxyResponse{
+				Body:       text,
+				StatusCode: http.StatusOK,
+			}, nil
 		}
 
 
@@ -55,13 +61,43 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 	}
 
 
-
-
 	return events.APIGatewayProxyResponse{
 		Body:       "",
 		StatusCode: http.StatusOK,
 	}, nil
 
+}
+
+
+func handleIap(message slack.InteractionCallback) string {
+	action := message.ActionCallback.AttachmentActions[0]
+
+	version := action.Value
+
+	if action.Name == "YES" {
+
+		bitrise.BuildIap(version)
+
+		return "Deploying " + version +" iap build"
+	}
+
+	return "Deploying " + version + " iap build has been canceled"
+}
+
+
+func handleInhouse(message slack.InteractionCallback) string {
+	action := message.ActionCallback.AttachmentActions[0]
+
+	version := action.Value
+
+	if action.Name == "YES" {
+
+		bitrise.BuildInhouse(version)
+
+		return "Deploying " + version +" inhouse build"
+	}
+
+	return "Deploying " + version + " inhouse build has been canceled"
 }
 
 func main() {

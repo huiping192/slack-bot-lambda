@@ -9,7 +9,6 @@ import (
 	"github.com/nlopes/slack/slackevents"
 	"net/http"
 	"os"
-	"slack-bot-lambda/bitrise"
 	"strings"
 )
 
@@ -110,31 +109,7 @@ func handleMention(ev slackevents.AppMentionEvent) {
 
 func handleHelp(ev slackevents.AppMentionEvent) {
 
-	actions :=  []slack.AttachmentAction{
-		{
-			Name: "YES",
-			Text: "はい",
-			Type: "button",
-			Style: "primary",
-			Value: "true",
-		},
-		{
-			Name: "NO",
-			Text: "いいえ",
-			Type: "button",
-			Value: "false",
-		},
-	}
 
-	attachment :=  slack.Attachment{
-		Title: "確認",
-		Text: "バージョンbuild本当ですか?",
-		Actions: actions,
-		Color: "#3AA3E3",
-		CallbackID: "callback_help",
-	}
-
-	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
 
 	//sendMsg("```コマンドサンプル: \n inhouse build: @ios_slack_bot inhouse v4.8.0 \n 課金build: @ios_slack_bot iap v4.8.0 ``",ev.Channel)
 }
@@ -143,17 +118,61 @@ func handleHelp(ev slackevents.AppMentionEvent) {
 func handleIap(ev slackevents.AppMentionEvent) {
 	version := strings.Fields(ev.Text)[2]
 
-	bitrise.BuildIap(version)
+	actions :=  []slack.AttachmentAction{
+		{
+			Name: "YES",
+			Text: "はい",
+			Type: "button",
+			Style: "primary",
+			Value: version,
+		},
+		{
+			Name: "NO",
+			Text: "いいえ",
+			Type: "button",
+			Value: version,
+		},
+	}
 
-	sendMsg("deploying iap build, version: " + version,ev.Channel)
+	attachment :=  slack.Attachment{
+		Title: "確認",
+		Text: version+"の課金バージョン作りますが、よろしいですか?",
+		Actions: actions,
+		Color: "#3AA3E3",
+		CallbackID: "callback_iap_deploy",
+	}
+
+	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
 }
 
 func handleInhouse(ev slackevents.AppMentionEvent) {
 	version := strings.Fields(ev.Text)[2]
 
-	bitrise.BuildInhouse(version)
+	actions :=  []slack.AttachmentAction{
+		{
+			Name: "YES",
+			Text: "はい",
+			Type: "button",
+			Style: "primary",
+			Value: version,
+		},
+		{
+			Name: "NO",
+			Text: "いいえ",
+			Type: "button",
+			Value: version,
+		},
+	}
 
-	sendMsg("deploying inhouse build, version: " + version,ev.Channel)
+	attachment :=  slack.Attachment{
+		Title: "確認",
+		Text: version+"のinhouseバージョン作りますが、よろしいですか?",
+		Actions: actions,
+		Color: "#FFD700",
+		CallbackID: "callback_inhouse_deploy",
+	}
+
+	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
 }
 
 
