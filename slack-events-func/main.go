@@ -130,6 +130,7 @@ func handleHelp(ev slackevents.AppMentionEvent) {
 		Text: "バージョンbuild本当ですか?",
 		Actions: actions,
 		Color: "#3AA3E3",
+		CallbackID: "callback_help",
 	}
 
 	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
