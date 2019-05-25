@@ -1,6 +1,7 @@
 package bitrise
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,7 +10,14 @@ import (
 )
 
 type Response struct {
-
+	Status           string   `json:"status,omitempty"`
+	Message string `json:"message"`
+	Slug string `json:"slug"`
+	Service string `json:"service"`
+	BuildSlug string `json:"build_slug"`
+	BuildNumber string `json:"build_number"`
+	BuildUrl string `json:"build_url"`
+	TriggeredWorkflow string `json:"triggered_workflow"`
 }
 
 func BuildIap(version string) {
@@ -28,7 +36,7 @@ func BuildInhouse(version string) {
 }
 
 
-func sendRequest(buildType string, buildTarget string, workflow string) {
+func sendRequest(buildType string, buildTarget string, workflow string) Response {
 	token := os.Getenv("BITRISE_TOKEN")
 	appId := os.Getenv("BITRISE_APP_ID")
 
@@ -42,6 +50,12 @@ func sendRequest(buildType string, buildTarget string, workflow string) {
 
 	defer resp.Body.Close()
 
+	var responseData Response
 	byteArray, _ := ioutil.ReadAll(resp.Body)
+
 	fmt.Println("response" + string(byteArray))
+
+	_ = json.Unmarshal(byteArray, &responseData)
+
+	return responseData
 }
