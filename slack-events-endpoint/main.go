@@ -108,7 +108,33 @@ func handleMention(ev slackevents.AppMentionEvent) {
 
 
 func handleHelp(ev slackevents.AppMentionEvent) {
-	sendMsg("```コマンドサンプル: \n inhouse build: @ios_slack_bot inhouse v4.8.0 \n 課金build: @ios_slack_bot iap v4.8.0 ``",ev.Channel)
+
+	actions :=  []slack.AttachmentAction{
+		{
+			Name: "YES",
+			Text: "はい",
+			Type: "button",
+			Style: "primary",
+			Value: "true",
+		},
+		{
+			Name: "NO",
+			Text: "いいえ",
+			Type: "button",
+			Value: "false",
+		},
+	}
+
+	attachment :=  slack.Attachment{
+		Title: "確認",
+		Text: "バージョンbuild本当ですか?",
+		Actions: actions,
+		Color: "#3AA3E3",
+	}
+
+	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
+
+	//sendMsg("```コマンドサンプル: \n inhouse build: @ios_slack_bot inhouse v4.8.0 \n 課金build: @ios_slack_bot iap v4.8.0 ``",ev.Channel)
 }
 
 
