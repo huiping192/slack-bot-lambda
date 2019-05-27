@@ -18,16 +18,6 @@ var verifyToken = os.Getenv("VERIFY_TOKEN")
 var api = slack.New(token)
 
 func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-
-	// retry の場合は無視
-	retryReason := request.Headers["X-Slack-Retry-Reason"]
-	if retryReason != "" {
-		return events.APIGatewayProxyResponse{
-			Body:       "",
-			StatusCode: http.StatusOK,
-		}, nil
-	}
-
 	body := request.Body
 	eventsAPIEvent, e := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: verifyToken}))
 	if e != nil {
@@ -103,15 +93,78 @@ func handleMention(ev slackevents.AppMentionEvent) {
 		return
 	}
 
+	if firstWord == "deploy" {
+		handleDeploy(ev)
+		return
+	}
+
 	sendMsg("なにいってるかわかりません。。。",ev.Channel)
 }
 
 
 func handleHelp(ev slackevents.AppMentionEvent) {
+	sendMsg("```コマンドサンプル: \n inhouse build: @ios_slack_bot inhouse v4.8.0 \n 課金build: @ios_slack_bot iap v4.8.0 ``",ev.Channel)
+}
 
+func handleDeploy(ev slackevents.AppMentionEvent) {
 
+	versionMenu := []slack.AttachmentActionOption{
+		{
+			Text: "v4.8.0",
+			Value: "v4.8.0",
+		},
+		{
+			Text: "v4.7.9",
+			Value: "v4.7.9",
+		},
+		{
+			Text: "v4.7.8",
+			Value: "v4.7.8",
+		},
+		{
+			Text: "v4.7.7",
+			Value: "v4.7.7",
+		},
+		{
+			Text: "v4.7.6",
+			Value: "v4.7.6",
+		},
+	}
+	//
+	//deployTypeList := []slack.AttachmentActionOption{
+	//	{
+	//		Text: "inhouse",
+	//		Value: "inhouse",
+	//	},
+	//	{
+	//		Text: "課金",
+	//		Value: "iap",
+	//	},
+	//}
 
-	//sendMsg("```コマンドサンプル: \n inhouse build: @ios_slack_bot inhouse v4.8.0 \n 課金build: @ios_slack_bot iap v4.8.0 ``",ev.Channel)
+	actions :=  []slack.AttachmentAction{
+		{
+			Name: "version_list",
+			Text: "バージョン選択",
+			Type: "select",
+			Options: versionMenu,
+		},
+		{
+			Name:  "cancel",
+			Text:  "Cancel",
+			Type:  "button",
+			Style: "danger",
+		},
+	}
+
+	attachment :=  slack.Attachment{
+		Text: "どのiOSバージョンdeployしますか?",
+		Actions: actions,
+		Color: "#3AA3E3",
+		CallbackID: "callback_deploy",
+	}
+
+	_, _, _, _ = api.SendMessage(ev.Channel, slack.MsgOptionAttachments(attachment))
 }
 
 

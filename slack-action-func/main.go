@@ -2,15 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+	l "github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/nlopes/slack"
 	"log"
 	"net/http"
 	"net/url"
-	"slack-bot-lambda/bitrise"
 	"strings"
 )
+
+type Event struct {
+	Version string    `json:"version"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Channel string `json:"channel"`
+	ResponseUrl string `json:"responseUrl"`
+}
 
 func parseBody(body string) string {
 	decodedValue, _ := url.QueryUnescape(body)
@@ -32,7 +43,7 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 		log.Print("json unmarshal message failed: ", err)
 		return events.APIGatewayProxyResponse{
 			Body:       "",
-			StatusCode: http.StatusInternalServerError,
+			StatusCode: http.StatusBadRequest,
 		}, nil
 	}
 
@@ -40,7 +51,7 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 		log.Println("receive interactive message, name:" + message.Name + "callback id:" + message.CallbackID)
 
 		if message.CallbackID == "callback_iap_deploy" {
-			text := handleIap(message)
+			text := handleBuild(message, "iap")
 			return events.APIGatewayProxyResponse{
 				Body:       text,
 				StatusCode: http.StatusOK,
@@ -48,7 +59,7 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 		}
 
 		if message.CallbackID == "callback_inhouse_deploy" {
-			text := handleInhouse(message)
+			text := handleBuild(message, "inhouse")
 			return events.APIGatewayProxyResponse{
 				Body:       text,
 				StatusCode: http.StatusOK,
@@ -56,10 +67,17 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 		}
 
 
-	} else if message.Type == "dialog_submission" {
-		// フォームの入力を受け付けて何かする
-	}
+		if message.CallbackID == "callback_deploy" {
+			text := handleDeploy(message)
+			return events.APIGatewayProxyResponse{
+				Body:       text,
+				StatusCode: http.StatusOK,
+			}, nil
+		}
 
+
+
+	}
 
 	return events.APIGatewayProxyResponse{
 		Body:       "",
@@ -69,37 +87,115 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 }
 
 
-func handleIap(message slack.InteractionCallback) string {
+func handleDeploy(message slack.InteractionCallback) string {
 	action := message.ActionCallback.AttachmentActions[0]
 
-	version := action.Value
-
-	if action.Name == "YES" {
-
-		bitrise.BuildIap(version)
-
-		return "Deploying " + version +" iap build"
+	if action.Name == "cancel" {
+		return fmt.Sprintf(":x: @%s canceled the deploy", message.User.Name)
 	}
 
-	return "Deploying " + version + " iap build has been canceled"
-}
+	if action.Name == "version_list" {
+
+		value := action.SelectedOptions[0].Value
+
+		actions :=  []slack.AttachmentAction{
+			{
+				Name:  "inhouse",
+				Text:  "inhouse",
+				Type:  "button",
+				Value: value,
+			},
+			{
+				Name:  "iap",
+				Text:  "課金",
+				Type:  "button",
+				Value: value,
+			},
+		}
+
+		originalMessage := message.OriginalMessage
+		originalMessage.ResponseType = "ephemeral"
+		originalMessage.Attachments[0].Text = fmt.Sprintf("%s buildするtype選択", strings.Title(value))
+		originalMessage.Attachments[0].Actions = actions
+
+		result, _ := json.Marshal(&originalMessage)
+		return string(result)
+	}
 
 
-func handleInhouse(message slack.InteractionCallback) string {
-	action := message.ActionCallback.AttachmentActions[0]
+	if action.Name == "inhouse" {
+		version := action.Value
 
-	version := action.Value
-
-	if action.Name == "YES" {
-
-		bitrise.BuildInhouse(version)
+		//bitrise.BuildInhouse(version)
 
 		return "Deploying " + version +" inhouse build"
 	}
 
-	return "Deploying " + version + " inhouse build has been canceled"
+	if action.Name == "iap" {
+		version := action.Value
+
+		//bitrise.BuildIap(version)
+
+		return "Deploying " + version +" iap build"
+	}
+
+
+	return "test"
+
+}
+
+func responseMessage(original slack.Message, title, value string) string {
+	original.Attachments[0].Actions = []slack.AttachmentAction{} // empty buttons
+	original.Attachments[0].Fields = []slack.AttachmentField{
+		{
+			Title: title,
+			Value: value,
+			Short: false,
+		},
+	}
+
+	result, _ := json.Marshal(&original)
+	return string(result)
+}
+
+func handleBuild(message slack.InteractionCallback, buildType string) string {
+	action := message.ActionCallback.AttachmentActions[0]
+	version := action.Value
+
+	if action.Name == "YES" {
+		callDeployLambdaFunc(message, buildType)
+		return ""
+	}
+
+	return "Deploying " + version + " "+ buildType +" build has been canceled"
+}
+
+func callDeployLambdaFunc(message slack.InteractionCallback, buildType string) {
+	action := message.ActionCallback.AttachmentActions[0]
+	version := action.Value
+
+	event := Event{
+		Version: version,
+		Name: "deploy",
+		Type: buildType,
+		Channel: message.Channel.Name,
+		ResponseUrl: message.ResponseURL,
+	}
+
+	jsonBytes, _ := json.Marshal(&event)
+	svc := lambda.New(session.New())
+
+	print("event data:" + string(jsonBytes))
+	input := &lambda.InvokeInput{
+		FunctionName:   aws.String("arn:aws:lambda:ap-northeast-1:258948870772:function:ios-deploy-func"),
+		Payload:        jsonBytes,
+		InvocationType: aws.String("Event"),
+	}
+
+	resp, _ := svc.Invoke(input)
+	fmt.Println("deploy result:" + resp.GoString())
 }
 
 func main() {
-	lambda.Start(HandleRequest)
+	l.Start(HandleRequest)
 }
