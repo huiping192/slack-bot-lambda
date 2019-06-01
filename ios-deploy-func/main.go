@@ -12,7 +12,6 @@ import (
 )
 
 var token = os.Getenv("TOKEN")
-var verifyToken = os.Getenv("VERIFY_TOKEN")
 
 var api = slack.New(token)
 
@@ -48,6 +47,10 @@ func HandleRequest(request Event) (Response, error) {
 
 
 func updateSlackMessage(event Event) {
+	if event.ResponseUrl == "" {
+		return
+	}
+
 	jsonStr := `{"text":"` + "Deploying " + event.Version +" "+ event.Type +" build" + `"}`
 
 	req, _ := http.NewRequest(
@@ -83,7 +86,11 @@ func handleIap(request Event) {
 }
 
 func handleInhouse(request Event) {
-	bitrise.BuildInhouse(request.Version)
+	version := request.Version
+
+	bitrise.BuildInhouse(version)
+
+	sendMsg("Deploying " + version +" inhouse build" ,request.Channel)
 }
 
 
